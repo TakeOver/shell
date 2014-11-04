@@ -38,7 +38,6 @@ void handle_abrt(int s){
 void execute(action* acts, int inp_fd){
     DBG_TRACE("");
     if(!acts){
-       // exit(2);
         return;
     }
     int fd[2];
@@ -46,63 +45,53 @@ void execute(action* acts, int inp_fd){
     if(pipe(fd) == -1){
         handle_abrt(SIGABRT);
     }
-
-    //while(1){
-        int pid = fork();
-        if(pid == -1){
-            handle_abrt(SIGABRT);
+    int pid = fork();
+    if(pid == -1){
+        handle_abrt(SIGABRT);
+    }
+    if(pid == 0){
+        if(acts->io_ty == 1 || acts->io_ty > 3){
+            int inp = open(acts->filei, O_RDONLY | O_NONBLOCK);
+            if(inp == -1){
+                perror("Failed to open file for  input");
+                exit(1);
+            }
+            dup2(inp,0);
+        }else if(inp_fd != 0){
+            dup2(inp_fd,0);
         }
-        if(pid == 0){
-            if(acts->io_ty == 1 || acts->io_ty > 3){
-                int inp = open(acts->filei, O_RDONLY | O_NONBLOCK);
-
-                if(inp == -1){
-                    perror("Failed to open file for  input");
-                    exit(1);
-                }
-                dup2(inp,0);
-
-            }else if(inp_fd != 0){
-                dup2(inp_fd,0);
+        if(acts->io_ty == 2 || acts->io_ty == 4){
+            int outp = open(acts->fileo, O_WRONLY | O_TRUNC | O_CREAT | O_NONBLOCK);
+            if(outp == -1){
+                perror("Failed to open file for  output");
+                exit(1);
             }
-            if(acts->io_ty == 2 || acts->io_ty == 4){
-                
-                int outp = open(acts->fileo, O_WRONLY | O_TRUNC | O_CREAT | O_NONBLOCK);
-                if(outp == -1){
-                    perror("Failed to open file for  output");
-                    exit(1);
-                }
-                dup2(outp,1);
-
-            } else if(acts->io_ty == 3 || acts->io_ty == 5){
-                int outp = open(acts->fileo, O_WRONLY | O_APPEND | O_CREAT | O_NONBLOCK);
-                if(outp == -1){
-                    perror("Failed to open file for  output");
-                    exit(1);
-                }
-                dup2(outp,1);
-            } else if(acts->is_conv){
-                dup2(fd[1],1);
-                
+            dup2(outp,1);
+        } else if(acts->io_ty == 3 || acts->io_ty == 5){
+            int outp = open(acts->fileo, O_WRONLY | O_APPEND | O_CREAT | O_NONBLOCK);
+            if(outp == -1){
+                perror("Failed to open file for  output");
+                exit(1);
             }
-            char** argv = (char**)malloc(sizeof(void*)*(acts->size+1));
-            for (int i = 0; i < acts->size; ++i) {
-                argv[i] = (char*) malloc(sizeof(char)*acts->tok[i]->len + sizeof(char));
-                strcpy(argv[i], acts->tok[i]->str);
-            }
-            argv[acts->size] = NULL;
-            DBG_TRACE("calling func:%s",(*acts->tok)->str);
-            execvp((*acts->tok)->str, argv);
-            fprintf(stderr,"Cannot exec %s\n",argv[0]);
-            kill(getppid(),SIGABRT);
-            exit(1);
-            
-            
+            dup2(outp,1);
+        } else if(acts->is_conv){
+            dup2(fd[1],1);
+        }
+        char** argv = (char**)malloc(sizeof(void*)*(acts->size+1));
+        for (int i = 0; i < acts->size; ++i) {
+            argv[i] = (char*) malloc(sizeof(char)*acts->tok[i]->len + sizeof(char));
+            strcpy(argv[i], acts->tok[i]->str);
+        }
+        argv[acts->size] = NULL;
+        DBG_TRACE("calling func:%s",(*acts->tok)->str);
+        execvp((*acts->tok)->str, argv);
+        fprintf(stderr,"Cannot exec %s\n",argv[0]);
+        kill(getppid(),SIGABRT);
+        exit(1);
     }
     if(inp_fd){
         close(inp_fd);
     }
-    
     close(fd[1]);
     execute(acts->next, fd[0]);
 }

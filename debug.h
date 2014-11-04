@@ -9,7 +9,7 @@
 #ifndef dshellh_debug_h
 #define dshellh_debug_h
 
-#ifdef DEBUG_HUY
+#ifdef DEBUG
     #ifdef USE_PRETTY_FUNCTION
         #define ___FUNC___ __PRETTY_FUNCTION__
     #else

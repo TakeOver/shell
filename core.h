@@ -24,7 +24,7 @@ struct token_{
 };
 typedef struct token_ token;
 typedef enum tokty_ tokty;
-char splitters[] = {'>','<','|',' ','\n','\t',0};
+char const splitters[] = {'>','<','|',' ','\n','\t',0};
 int is_split(char c){
     int i = 0;
     while(splitters[i] && splitters[i] != c)++i;

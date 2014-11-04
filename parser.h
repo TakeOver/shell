@@ -11,8 +11,7 @@
 #include "core.h"
 #include "proc.h"
 #include <assert.h>
-//#include "debug.h"
-#define DBG_TRACE(a,...) ((void) 0)
+#include "debug.h"
 struct action_shell{
     token** tok; // obviusly, tokens
     int size; // number of tokens
