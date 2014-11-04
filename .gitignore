@@ -1,6 +1,6 @@
 <<<<<<< HEAD
-.out
-.txt
+*.out
+*.txt
 =======
 # Object files
 *.o
