@@ -24,6 +24,13 @@ static struct list_proc* ALL_CHILDS;
 int sendsig(pid_t pid, int sig){
     return kill(pid,sig);
 }
+void push_child(pid_t pid){
+    struct list_proc *lp = (struct list_proc*)malloc(sizeof(struct list_proc));
+    lp->proc = pid;
+    lp->next = ALL_CHILDS;
+    ALL_CHILDS = lp;
+}
+
 void handle_abrt(int s){
     struct list_proc* ptr = ALL_CHILDS;
     while(ptr){
@@ -32,8 +39,19 @@ void handle_abrt(int s){
     }
     ptr = ALL_CHILDS;
     fprintf(stderr,"An error accused\n");
-    (void)waitpid(0,NULL,0);
-    exit(1);
+    while(wait(NULL) != -1);
+}
+
+void init_lp(){
+    ALL_CHILDS = NULL;
+    signal(SIGABRT,handle_abrt);
+}
+void free_lp(){
+    while(ALL_CHILDS){
+        struct list_proc *tmp = ALL_CHILDS->next;
+        free(ALL_CHILDS);
+        ALL_CHILDS = tmp;
+    }
 }
 void execute(action* acts, int inp_fd){
     DBG_TRACE("");
@@ -63,14 +81,14 @@ void execute(action* acts, int inp_fd){
         if(acts->io_ty == 2 || acts->io_ty == 4){
             int outp = open(acts->fileo, O_WRONLY | O_TRUNC | O_CREAT | O_NONBLOCK);
             if(outp == -1){
-                perror("Failed to open file for  output");
+                perror("Failed to open file for  output/r");
                 exit(1);
             }
             dup2(outp,1);
         } else if(acts->io_ty == 3 || acts->io_ty == 5){
             int outp = open(acts->fileo, O_WRONLY | O_APPEND | O_CREAT | O_NONBLOCK);
             if(outp == -1){
-                perror("Failed to open file for  output");
+                perror("Failed to open file for  output/a");
                 exit(1);
             }
             dup2(outp,1);

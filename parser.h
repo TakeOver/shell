@@ -21,7 +21,7 @@ struct action_shell{
     struct action_shell * next;
 };
 typedef struct action_shell action;
-#define SYNTAXERR do{printf("Incorrect syntax.\n");exit(1);}while(0);
+#define SYNTAXERR do{printf("Incorrect syntax.\n");PARSER_ERROR = 1; return NULL;}while(0);
 
 void add(action* ptr ){
     
@@ -38,7 +38,7 @@ action * create_action(token**tok,int size, int is_conv, char* filei,char* fileo
     res->next = NULL;
     return res;
 }
-int REIN_ASSERTED = 0;
+int PARSER_ERROR = 0;
 action* parse_prog_call(token*** _tkns){
     DBG_TRACE("");
     token ** tkns = *_tkns;
@@ -51,9 +51,11 @@ action* parse_prog_call(token*** _tkns){
         DBG_TRACE("0");
         is_inp = 1;
         if(!tkns[2]){
+            free(act);
             SYNTAXERR;
         }
         if(tkns[2]->ty != IDENT){
+            free(act);
             SYNTAXERR;
         }
         filei = tkns[0]->str;
@@ -74,12 +76,15 @@ action* parse_prog_call(token*** _tkns){
             io_ty = 2 + (tkns[size]->ty == SPECOUT);
             DBG_TRACE("1");
             if(!tkns[size+1]){
+                free(act);
                 SYNTAXERR;
             }
             if(tkns[size+1]->ty != IDENT){
+                free(act);
                 SYNTAXERR;
             }
             if(tkns[size+2]){
+                free(act);
                 SYNTAXERR;
             }
             fileo = tkns[size+1]->str;
@@ -120,6 +125,9 @@ action* parse(token*** tkns){
         return tmp;
     }
     action* tmp = parse_prog_call(tkns);
+    if(PARSER_ERROR){
+        return NULL;
+    }
     tmp->next = parse(tkns);
     return tmp;
 }
