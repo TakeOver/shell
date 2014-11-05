@@ -15,6 +15,7 @@
 int main(int argc, char const *argv[])
 {
     while(1){
+        init_lp();
         printf("shell:>");
         char* str = (char*)malloc(255);
         if(!fgets(str,254,stdin)){
@@ -54,6 +55,7 @@ int main(int argc, char const *argv[])
             free(res);
             res = tmp;
         }
+        free_lp();
     }
     return 0;
 }
