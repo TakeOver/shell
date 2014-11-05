@@ -12,12 +12,21 @@
 #include "proc.h"
 #include <assert.h>
 #include "debug.h"
+enum io_type{
+    NONE = 0,
+    INP,
+    OUTP,
+    ASOUTP,
+    INOUTP,
+    ASINOUTP
+    
+};
 struct action_shell{
     token** tok; // obviusly, tokens
     int size; // number of tokens
     int is_conv; // if 1 then necceraly next !=NULL and next->io_ty != 1
     char* filei, * fileo;
-    int io_ty; // 0 - none, 1 - input, 2 - output, 3 - assign output, 4 - both 1 2, but necceraly is_conv == 0 and next == NULL, 5 both 1 3
+    enum io_type io_ty; // 0 - none, 1 - input, 2 - output, 3 - assign output, 4 - both 1 2, but necceraly is_conv == 0 and next == NULL, 5 both 1 3
     struct action_shell * next;
 };
 typedef struct action_shell action;
@@ -96,10 +105,10 @@ action* parse_prog_call(token*** _tkns){
     act->fileo = fileo;
     act->io_ty = io_ty;
     if(is_inp){
-        if(io_ty == 0){
-            act->io_ty = 1;
+        if(io_ty == NONE){
+            act->io_ty = INP;
         }else{
-            act->io_ty+=2;
+            act->io_ty+=OUTP;
         }
     }
     act->is_conv = is_conv;
@@ -120,7 +129,7 @@ action* parse(token*** tkns){
         SYNTAXERR;
     }
     if(!(*tkns)[1]){
-        action * tmp = create_action((*tkns), 1, 0, 0, 0, 0);
+        action * tmp = create_action((*tkns), 1, 0, 0, 0, NONE);
         *tkns = *tkns+1;
         return tmp;
     }

@@ -68,7 +68,7 @@ void execute(action* acts, int inp_fd){
         handle_abrt(SIGABRT);
     }
     if(pid == 0){
-        if(acts->io_ty == 1 || acts->io_ty > 3){
+        if(acts->io_ty == INP || acts->io_ty > ASOUTP){
             int inp = open(acts->filei, O_RDONLY | O_NONBLOCK);
             if(inp == -1){
                 perror("Failed to open file for  input");
@@ -78,14 +78,14 @@ void execute(action* acts, int inp_fd){
         }else if(inp_fd != 0){
             dup2(inp_fd,0);
         }
-        if(acts->io_ty == 2 || acts->io_ty == 4){
+        if(acts->io_ty == OUTP || acts->io_ty == INOUTP){
             int outp = open(acts->fileo, O_WRONLY | O_TRUNC | O_CREAT | O_NONBLOCK);
             if(outp == -1){
                 perror("Failed to open file for  output/r");
                 exit(1);
             }
             dup2(outp,1);
-        } else if(acts->io_ty == 3 || acts->io_ty == 5){
+        } else if(acts->io_ty == ASOUTP || acts->io_ty == ASINOUTP){
             int outp = open(acts->fileo, O_WRONLY | O_APPEND | O_CREAT | O_NONBLOCK);
             if(outp == -1){
                 perror("Failed to open file for  output/a");
