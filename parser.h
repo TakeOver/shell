@@ -30,7 +30,7 @@ struct action_shell{
     struct action_shell * next;
 };
 typedef struct action_shell action;
-#define SYNTAXERR do{printf("Incorrect syntax.\n");PARSER_ERROR = 1; return NULL;}while(0);
+#define SYNTAXERR(msg) do{printf("Incorrect syntax: %s.\n",msg);PARSER_ERROR = 1; return NULL;}while(0);
 
 void add(action* ptr ){
     
@@ -56,20 +56,6 @@ action* parse_prog_call(token*** _tkns){
     int size= 0;
     char* filei = NULL;
     int is_inp = 0;
-    if(tkns[1]->ty == REIN){
-        DBG_TRACE("0");
-        is_inp = 1;
-        if(!tkns[2]){
-            free(act);
-            SYNTAXERR;
-        }
-        if(tkns[2]->ty != IDENT){
-            free(act);
-            SYNTAXERR;
-        }
-        filei = tkns[0]->str;
-        tkns = tkns+2;
-    }
     while(tkns[size]){
         if(tkns[size]->ty == IDENT){
             size++;
@@ -77,29 +63,50 @@ action* parse_prog_call(token*** _tkns){
             break;
         }
     }
+    act->tok = tkns;
     int is_conv = 0;
     int io_ty = 0;
     char* fileo = NULL;
-    if(tkns[size]){
-        if(tkns[size]->ty == REOUT || tkns[size]->ty == SPECOUT){
+    while(tkns[size]){
+        if(tkns[size]->ty == REIN){
+            if(filei){
+                SYNTAXERR("2 files scpecified for input");
+            }
+            DBG_TRACE("0");
+            is_inp = 1;
+            if(!tkns[size+1]){
+                free(act);
+                SYNTAXERR("no file specified for input");
+            }
+            if((tkns[size+1]->ty != IDENT)){
+                free(act);
+                SYNTAXERR("input file name incorrect");
+            }
+            filei = tkns[size+1]->str;
+            tkns = tkns+2;
+        }else if(tkns[size]->ty == REOUT || tkns[size]->ty == SPECOUT){
+            if(fileo){
+                SYNTAXERR("2 files specified for output");
+            }
             io_ty = 2 + (tkns[size]->ty == SPECOUT);
             DBG_TRACE("1");
             if(!tkns[size+1]){
                 free(act);
-                SYNTAXERR;
+                SYNTAXERR("no file scpecified for output");
             }
             if(tkns[size+1]->ty != IDENT){
                 free(act);
-                SYNTAXERR;
+                SYNTAXERR("output file name incorrect");
             }
             if(tkns[size+2]){
                 free(act);
-                SYNTAXERR;
+                SYNTAXERR("end of commands expected");
             }
             fileo = tkns[size+1]->str;
+            break;
         }else{
             is_conv = tkns[size]->ty == CONV;
-            
+            break;
         }
     }
     act->fileo = fileo;
@@ -113,7 +120,6 @@ action* parse_prog_call(token*** _tkns){
     }
     act->is_conv = is_conv;
     //!TODO form toks.
-    act->tok = tkns;
     act->filei = filei;
     act->size = size;
     act->next = NULL;
@@ -126,7 +132,7 @@ action* parse(token*** tkns){
         return NULL;
     }
     if((**tkns)->ty != IDENT){
-        SYNTAXERR;
+        SYNTAXERR("identifer expected");
     }
     if(!(*tkns)[1]){
         action * tmp = create_action((*tkns), 1, 0, 0, 0, NONE);
