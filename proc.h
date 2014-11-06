@@ -120,9 +120,11 @@ void execute(action* acts, int inp_fd){
         close(inp_fd);
     }
     close(fd[1]);
-    execute(acts->next, fd[0]);
     if(ABRT_TRIGGER){
+        close(fd[0]);
         handle_abrt(SIGABRT);
+    }else{
+        execute(acts->next, fd[0]);
     }
 }
 #endif
