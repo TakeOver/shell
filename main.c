@@ -5,7 +5,7 @@
 //  Created by Aleksei on 29/10/14.
 //  Copyright (c) 2014 Aleksei. All rights reserved.
 //
-
+#define USE_PRETTY_FUNCTION
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

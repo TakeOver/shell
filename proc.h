@@ -20,6 +20,7 @@ struct list_proc{
     struct list_proc * next;
     pid_t proc;
 };
+static int ABRT_TRIGGER;
 static struct list_proc* ALL_CHILDS;
 int sendsig(pid_t pid, int sig){
     return kill(pid,sig);
@@ -31,21 +32,6 @@ void push_child(pid_t pid){
     ALL_CHILDS = lp;
 }
 
-void handle_abrt(int s){
-    struct list_proc* ptr = ALL_CHILDS;
-    while(ptr){
-        kill(ptr->proc,SIGINT);
-        ptr = ptr->next;
-    }
-    ptr = ALL_CHILDS;
-    fprintf(stderr,"An error accused\n");
-    while(wait(NULL) != -1);
-}
-
-void init_lp(){
-    ALL_CHILDS = NULL;
-    signal(SIGABRT,handle_abrt);
-}
 void free_lp(){
     while(ALL_CHILDS){
         struct list_proc *tmp = ALL_CHILDS->next;
@@ -53,9 +39,32 @@ void free_lp(){
         ALL_CHILDS = tmp;
     }
 }
+void handle_abrt(int s){
+    struct list_proc* ptr = ALL_CHILDS;
+    while(ptr){
+        kill(ptr->proc,SIGINT);
+        ptr = ptr->next;
+    }
+    ptr = ALL_CHILDS;
+    if(!ABRT_TRIGGER){
+        fprintf(stderr,"An error accused\n");
+    }
+    ABRT_TRIGGER = 1;
+    while(wait(NULL) != -1);
+    free_lp();
+}
+
+void init_lp(){
+    ALL_CHILDS = NULL;
+    ABRT_TRIGGER = 0;
+    signal(SIGABRT,handle_abrt);
+}
 void execute(action* acts, int inp_fd){
     DBG_TRACE("");
-    if(!acts){
+    if(!acts ||  ABRT_TRIGGER){
+        if(!inp_fd){
+            close(inp_fd);
+        }
         return;
     }
     int fd[2];
@@ -79,14 +88,14 @@ void execute(action* acts, int inp_fd){
             dup2(inp_fd,0);
         }
         if(acts->io_ty == OUTP || acts->io_ty == INOUTP){
-            int outp = open(acts->fileo, O_WRONLY | O_TRUNC | O_CREAT | O_NONBLOCK);
+            int outp = open(acts->fileo, O_WRONLY | O_TRUNC | O_CREAT, 0660);
             if(outp == -1){
                 perror("Failed to open file for  output/r");
                 exit(1);
             }
             dup2(outp,1);
         } else if(acts->io_ty == ASOUTP || acts->io_ty == ASINOUTP){
-            int outp = open(acts->fileo, O_WRONLY | O_APPEND | O_CREAT | O_NONBLOCK);
+            int outp = open(acts->fileo, O_WRONLY | O_APPEND | O_CREAT, 0660);
             if(outp == -1){
                 perror("Failed to open file for  output/a");
                 exit(1);
@@ -112,5 +121,8 @@ void execute(action* acts, int inp_fd){
     }
     close(fd[1]);
     execute(acts->next, fd[0]);
+    if(ABRT_TRIGGER){
+        handle_abrt(SIGABRT);
+    }
 }
 #endif

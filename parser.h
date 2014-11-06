@@ -30,11 +30,8 @@ struct action_shell{
     struct action_shell * next;
 };
 typedef struct action_shell action;
-#define SYNTAXERR(msg) do{printf("Incorrect syntax: %s.\n",msg);PARSER_ERROR = 1; return NULL;}while(0);
+#define SYNTAXERR(msg) do{printf("Incorrect syntax: %s.\n",msg);PARSER_ERROR = 1; return NULL;}while(0)
 
-void add(action* ptr ){
-    
-}
 action * create_action(token**tok,int size, int is_conv, char* filei,char* fileo,int io_ty){
     DBG_TRACE("");
     action* res = (action*)malloc(sizeof(action));
@@ -47,7 +44,7 @@ action * create_action(token**tok,int size, int is_conv, char* filei,char* fileo
     res->next = NULL;
     return res;
 }
-int PARSER_ERROR = 0;
+static int PARSER_ERROR = 0;
 action* parse_prog_call(token*** _tkns){
     DBG_TRACE("");
     token ** tkns = *_tkns;
@@ -119,7 +116,6 @@ action* parse_prog_call(token*** _tkns){
         }
     }
     act->is_conv = is_conv;
-    //!TODO form toks.
     act->filei = filei;
     act->size = size;
     act->next = NULL;
