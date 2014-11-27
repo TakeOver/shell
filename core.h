@@ -15,7 +15,11 @@ enum tokty_{
     REIN,
     REOUT,
     IDENT,
-    SPECOUT
+    SPECOUT,
+    NOHANG,
+    AND,
+    OR,
+    BREAK
 };
 struct token_{
     char* str;
@@ -24,7 +28,7 @@ struct token_{
 };
 typedef struct token_ token;
 typedef enum tokty_ tokty;
-char const splitters[] = {'>','<','|',' ','\n','\t',0};
+char const splitters[] = {'>','<','|',' ','\n','\t','&','(',')',';',0};
 int is_split(char c){
     int i = 0;
     while(splitters[i] && splitters[i] != c)++i;
@@ -58,11 +62,28 @@ token* gettok(char* str, int *pos){
                         tk->ty = REIN;
                     }break;
                         
-                    case '|':{
-                        tk->str[0] = '|';
+                    case ';':{
+                        tk->str[0] = ';';
                         tk->str[1] = 0;
                         tk->len = 1;
-                        tk->ty = CONV;		
+                        tk->ty = BREAK;
+                    }break;
+
+                    case '&':{
+                        tk->str[0] = '&';
+                        tk->str[1] = (str[*pos+1] == '&')?'&':0;
+                        tk->str[2] = 0;
+                        tk->len = 1 + (str[*pos+1] == '&');
+                        tk->ty = (str[*pos+1] == '&')?AND:NOHANG;
+                        *pos += str[*pos+1] == '&';
+                    }break;
+                    case '|':{
+                        tk->str[0] = '|';
+                        tk->str[1] = (str[*pos+1] == '|')?'|':0;
+                        tk->str[2] = 0;
+                        tk->len = 1 + (str[*pos+1] == '|');
+                        tk->ty = (str[*pos+1] == '|')?OR:CONV;
+                        *pos += str[*pos+1] == '|';
                     }break;
                     default:{
                         if(str[*pos]){

@@ -17,32 +17,50 @@
 #include "parser.h"
 #include <fcntl.h>
 struct list_proc{
-    struct list_proc * next;
+    volatile struct list_proc * next;
     pid_t proc;
+    int nohang;
+    int deleted;
 };
-static int ABRT_TRIGGER;
-static struct list_proc* ALL_CHILDS;
+static volatile int ABRT_TRIGGER;
+static volatile struct list_proc* ALL_CHILDS;
+volatile int failed;
 int sendsig(pid_t pid, int sig){
     return kill(pid,sig);
 }
-void push_child(pid_t pid){
-    struct list_proc *lp = (struct list_proc*)malloc(sizeof(struct list_proc));
+void push_child(pid_t pid,int h){
+    volatile struct list_proc *lp = (volatile struct list_proc*)malloc(sizeof(volatile struct list_proc));
     lp->proc = pid;
     lp->next = ALL_CHILDS;
     ALL_CHILDS = lp;
+    lp->nohang = h;
+    lp->deleted = 0;
 }
 
-void free_lp(){
-    while(ALL_CHILDS){
-        struct list_proc *tmp = ALL_CHILDS->next;
-        free(ALL_CHILDS);
-        ALL_CHILDS = tmp;
+void free_lp(volatile struct list_proc* ptr){
+    if(!ptr)return;
+    if(ptr->deleted){
+        free_lp(ptr->next);
+        return;
     }
+    if(ptr->nohang){
+        free_lp(ptr->next);
+        return;
+    }
+    int fail;
+    waitpid(ptr->proc,&fail,0);
+    failed = failed || !!WEXITSTATUS(fail);
+    DBG_TRACE("exit code:%d",WEXITSTATUS(fail));
+    ptr->deleted = 1;
+    
+    
 }
 void handle_abrt(int s){
-    struct list_proc* ptr = ALL_CHILDS;
+    volatile struct list_proc* ptr = ALL_CHILDS;
     while(ptr){
-        kill(ptr->proc,SIGINT);
+        if(ptr->nohang == 0){
+            kill(ptr->proc,SIGINT);
+        }
         ptr = ptr->next;
     }
     ptr = ALL_CHILDS;
@@ -50,19 +68,24 @@ void handle_abrt(int s){
         fprintf(stderr,"An error accused\n");
     }
     ABRT_TRIGGER = 1;
-    while(wait(NULL) != -1);
-    free_lp();
+    failed = 1;
+    free_lp(ALL_CHILDS);
 }
 
 void init_lp(){
     ALL_CHILDS = NULL;
+    failed = 0;
     ABRT_TRIGGER = 0;
     signal(SIGABRT,handle_abrt);
+}
+void reinit_lp(){
+    failed = 0;
+    ABRT_TRIGGER = 0;
 }
 void execute(action* acts, int inp_fd){
     DBG_TRACE("");
     if(!acts ||  ABRT_TRIGGER){
-        if(!inp_fd){
+        if(inp_fd){
             close(inp_fd);
         }
         return;
@@ -77,6 +100,9 @@ void execute(action* acts, int inp_fd){
         handle_abrt(SIGABRT);
     }
     if(pid == 0){
+        if(acts->nohang){
+            signal(SIGINT,SIG_IGN);
+        }
         if(acts->io_ty == INP || acts->io_ty > ASOUTP){
             int inp = open(acts->filei, O_RDONLY | O_NONBLOCK);
             if(inp == -1){
@@ -84,8 +110,10 @@ void execute(action* acts, int inp_fd){
                 exit(1);
             }
             dup2(inp,0);
+            close(inp);
         }else if(inp_fd != 0){
             dup2(inp_fd,0);
+            close(inp_fd);
         }
         if(acts->io_ty == OUTP || acts->io_ty == INOUTP){
             int outp = open(acts->fileo, O_WRONLY | O_TRUNC | O_CREAT, 0660);
@@ -94,6 +122,7 @@ void execute(action* acts, int inp_fd){
                 exit(1);
             }
             dup2(outp,1);
+            close(outp);
         } else if(acts->io_ty == ASOUTP || acts->io_ty == ASINOUTP){
             int outp = open(acts->fileo, O_WRONLY | O_APPEND | O_CREAT, 0660);
             if(outp == -1){
@@ -101,8 +130,10 @@ void execute(action* acts, int inp_fd){
                 exit(1);
             }
             dup2(outp,1);
+            close(outp);
         } else if(acts->is_conv){
             dup2(fd[1],1);
+            close(fd[1]);
         }
         char** argv = (char**)malloc(sizeof(void*)*(acts->size+1));
         for (int i = 0; i < acts->size; ++i) {
@@ -116,6 +147,7 @@ void execute(action* acts, int inp_fd){
         kill(getppid(),SIGABRT);
         exit(1);
     }
+    push_child(pid,acts->nohang);
     if(inp_fd){
         close(inp_fd);
     }

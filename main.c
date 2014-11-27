@@ -9,13 +9,15 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-
+#include <signal.h>
 #include "proc.h"
 
 int main(int argc, char const *argv[])
 {
+    signal(SIGINT,SIG_IGN);
+    init_lp();
     while(1){
-        init_lp();
+        reinit_lp();
         printf("shell:>");
         char* str = (char*)malloc(255);
         if(!fgets(str,254,stdin)){
@@ -42,20 +44,31 @@ int main(int argc, char const *argv[])
         }
         tkns[i] = NULL;
         token ** tks = tkns;
-        action* res = parse(&tks);
-        execute(res, 0);
-        while(wait(NULL) != -1);
+        struct shell_command* res = parse(&tks);
+        while(res){
+            reinit_lp();
+            DBG_TRACE("logic:%d",res->logic);
+            execute(res->actions,0);
+            free_lp(ALL_CHILDS);
+            if(failed){
+                if(res->logic == 2){
+                    while(res && res->logic){
+                        res = res->next;
+                    }
+                }
+            }else if(res->logic == 1){
+                while(res && res->logic){
+                    res = res->next;
+                }
+            }
+            if(res)
+                res = res->next;
+        }
         for (int j = 0; j < i; ++j) {
             free(tkns[j]->str);
             free(tkns[j]);
         }
         free(tkns);
-        while(res){
-            action* tmp = res->next;
-            free(res);
-            res = tmp;
-        }
-        free_lp();
     }
     return 0;
 }

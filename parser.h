@@ -28,6 +28,12 @@ struct action_shell{
     char* filei, * fileo;
     enum io_type io_ty; // 0 - none, 1 - input, 2 - output, 3 - assign output, 4 - both 1 2, but necceraly is_conv == 0 and next == NULL, 5 both 1 3
     struct action_shell * next;
+    int nohang;
+};
+struct shell_command{
+    struct action_shell * actions;
+    int logic; // 0 - none, 1 - or, 2 - and
+    struct shell_command * next;
 };
 typedef struct action_shell action;
 #define SYNTAXERR(msg) do{printf("Incorrect syntax: %s.\n",msg);PARSER_ERROR = 1; return NULL;}while(0)
@@ -63,6 +69,7 @@ action* parse_prog_call(token*** _tkns){
     act->tok = tkns;
     int is_conv = 0;
     int io_ty = 0;
+    int nohang = 0;
     char* fileo = NULL;
     while(tkns[size]){
         if(tkns[size]->ty == REIN){
@@ -95,13 +102,22 @@ action* parse_prog_call(token*** _tkns){
                 free(act);
                 SYNTAXERR("output file name incorrect");
             }
-            if(tkns[size+2]){
+            if(tkns[size+2] && 0){
                 free(act);
                 SYNTAXERR("end of commands expected");
             }
             fileo = tkns[size+1]->str;
-            break;
+            tkns+=2;
         }else{
+            if(tkns[size]->ty == BREAK){
+              //  ++tkns;
+                is_conv = 0;
+                break;
+            }else if((tkns)[size]->ty == NOHANG && !nohang){
+                nohang = 1;
+                ++tkns;
+                continue;
+            }
             is_conv = tkns[size]->ty == CONV;
             break;
         }
@@ -119,12 +135,13 @@ action* parse_prog_call(token*** _tkns){
     act->filei = filei;
     act->size = size;
     act->next = NULL;
-    *_tkns = tkns + size + is_conv + io_ty*2;
+    act->nohang = nohang;
+    *_tkns = tkns + size + is_conv;
     return act;
 }
-action* parse(token*** tkns){
+action* parse_(token*** tkns){
     DBG_TRACE("");
-    if(*tkns == 0 || **tkns == 0){
+    if(*tkns == 0 || **tkns == 0 || (**tkns)->ty == OR || (**tkns)->ty == AND || (**tkns)->ty == BREAK){
         return NULL;
     }
     if((**tkns)->ty != IDENT){
@@ -139,7 +156,41 @@ action* parse(token*** tkns){
     if(PARSER_ERROR){
         return NULL;
     }
-    tmp->next = parse(tkns);
+    tmp->next = parse_(tkns);
+    
     return tmp;
 }
+struct shell_command*parse(token***tkns){
+    action* tmp = parse_(tkns);
+    if(!tmp){
+        return NULL;
+    }
+    struct shell_command* res= (struct shell_command*)malloc(sizeof(struct shell_command));
+    res->actions = tmp;
+    if((**tkns)!= NULL && (**tkns)->ty == OR){
+        res->logic = 1;
+      //  ++*tkns;
+    }else
+        if((**tkns)!= NULL && (**tkns)->ty == AND){
+            res->logic = 2;
+     //       ++*tkns;
+        }else
+            res->logic = 0;
+    if(!res->logic && ((**tkns) && ((**tkns)->ty != BREAK))){
+        if(**tkns){
+            free(res);
+            SYNTAXERR("End of commands expected");
+        }
+    }else{
+        ++*tkns;
+    }
+    res->next = parse(tkns);
+    if(PARSER_ERROR){
+        free(res);
+        return NULL;
+    }
+    return res;
+}
+
+
 #endif
